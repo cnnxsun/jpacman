@@ -13,6 +13,9 @@ class BoardTest {
 
     private Board board;
 
+    /***
+    *
+    */
     @BeforeEach
     void setUp() {
         // Create a 1x1 grid with a valid BasicSquare.
@@ -21,6 +24,9 @@ class BoardTest {
         board = new Board(grid);
     }
 
+    /***
+    *
+    */
     @Test
     void testBoardInitialization() {
         // Ensure that the board width and height are both 1.
@@ -32,6 +38,9 @@ class BoardTest {
         assertThat(square).isNotNull();
     }
 
+    /***
+    *
+    */
     @Test
     void testBoardInitializationWithNullSquare() {
         // Create a 1x1 grid with a null square.
