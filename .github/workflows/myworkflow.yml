@@ -2,10 +2,11 @@
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
 # documentation.
-# This workflow will build a package using Gradle and then publish it to GitHub packages when a release is created
-# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#Publishing-using-gradle
+# This workflow will build a Java project with Gradle and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-gradle
 
 name: JPacman CI with Gradle
+
 on:
   push:
     branches: [ "master" ]
@@ -18,57 +19,87 @@ permissions:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
+      - uses: actions/checkout@v3
 
-        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-        settings-path: ${{ github.workspace }} # location for the settings.xml file
-    
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-      
-    - name: Build with Gradle
-      run: xvfb-run ./gradlew build
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
 
-    - name: Generate JaCoCo Badge
-      uses: cicirello/jacoco-badge-generator@v2
-      with:
-        badges-directory: .github/badges
-        generate-coverage-badge: true
-        coverage-badge-filename: jacoco.svg
-        generate-branches-badge: true
-        branches-badge-filename: branches.svg
-        jacoco-csv-file: build/reports/jacoco/test/jacocoTestReport.csv
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-    - name: Check badge creation
-      run: ls -l .github/badges
-      
-    - name: Commit changes
-      uses: EndBug/add-and-commit@v9
-      with:
+      # Run all Gradle tasks in a simulated display environment to prevent HeadlessException
+      - name: Build and Test with Gradle in Headless Mode
+        run: xvfb-run ./gradlew build -x checkstyleTest
+
+  dependency-submission:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build with Gradle
+        run: xvfb-run ./gradlew build -x checkstyleTest
+
+      - name: Commit changes
+        uses: EndBug/add-and-commit@v9
+        with:
           default_author: github_actions
           message: 'Updated JaCoCo badges'
           add: '.github/badges/*.svg'
-    
-    - name: Show test results
-      run: cat build/reports/jacoco/test/jacocoTestReport.csv
+      
+      - name: Pull latest changes from remote
+        run: git pull origin master
+      
+      - name: Push commit
+        run: git push origin master
 
 
-    # The USERNAME and TOKEN need to correspond to the credentials environment variables used in
-    # the publishing section of your build.gradle
-    - name: Publish to GitHub Packages
-      run: ./gradlew publish
-      env:
-        USERNAME: ${{ github.actor }}
-        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate JaCoCo Badge
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          badges-directory: .github/badges
+          generate-coverage-badge: true
+          coverage-badge-filename: jacoco.svg
+          generate-branches-badge: true
+          branches-badge-filename: branches.svg
+          jacoco-csv-file: build/reports/jacoco/test/jacocoTestReport.csv
+
+      - name: Check badge creation
+        run: ls -l .github/badges
+      
+      - name: Commit changes
+        uses: EndBug/add-and-commit@v9
+        with:
+            default_author: github_actions
+            message: 'Updated JaCoCo badges'
+            add: '.github/badges/*.svg'
+      - name: Show test results
+        run: cat build/reports/jacoco/test/jacocoTestReport.csv
+
+
+      # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
+      # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v4
+
+      - name: View dependency submission JSON file
+        run: cat dependency-graph-reports/jpacman_ci_with_gradle-dependency-submission.json
