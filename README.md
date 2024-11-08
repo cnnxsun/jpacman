@@ -1,4 +1,4 @@
-# JPacman xx
+# JPacman
 
 [![Build Status](https://travis-ci.com/SERG-Delft/jpacman.svg?branch=master)](https://travis-ci.com/SERG-Delft/jpacman)
 
